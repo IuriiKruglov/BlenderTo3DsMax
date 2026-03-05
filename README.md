@@ -1,7 +1,7 @@
 # Blender → 3ds Max JSON Pipeline  
 **Version 1.0 — Production**
 
-A lightweight, dependency-free pipeline for transferring rigged hierarchies with animation from Blender to 3ds Max without FBX. It preserves every rotation mode, correct parent–child transforms at any depth, and both rotation and location animation curves.
+A lightweight, dependency-free pipeline for transferring rigged hierarchies with animation from Blender to 3ds Max without FBX common issues. It preserves every rotation mode, correct parent–child transforms at any depth, and both rotation and location animation curves.
 
 ---
 
@@ -42,11 +42,15 @@ Empty arrays `[]` are written when an axis has no keyframes.
 
 ### Usage
 
-1. Select the objects you want to export (the exporter processes the current selection).
+1. Select group of the objects you want to export (the exporter processes the current selection).
 2. Go to **File → Export → Blender JSON (.json)**.
 3. Choose a destination path and click **Export Blender JSON**.
 
 The resulting `.json` file is plain UTF-8 text and can be inspected in any text editor.
+4. Delete all objects animation, unparent all objects, export this group of objects via standart FBX exporter. Very important to to set a few things in Blender FBX exporter settings, in transrorm tab set Y forward in Forward tab, Z Up in Up tab, also hit checkbox Apply Transform, uncheck Bake Animation. Settings settings should be as in the screenshot:
+
+<img width="249" height="680" alt="image" src="https://github.com/user-attachments/assets/a44bdb4a-5c85-43e5-adfc-05fea501593f" />
+
 
 ### JSON structure
 
@@ -146,11 +150,11 @@ Alternatively, drag and drop the `.ms` file into the Max viewport.
 
 ### Usage
 
-1. **Import your mesh geometry first** — via FBX, OBJ, or any other method — so the named objects already exist in the scene. The script matches objects by name.
+1. **Import your mesh geometry first** — via FBX as stated above — so the named objects already exist in the scene. The script matches objects by name.
 2. Open the **Blender JSON Importer** dialog (run the script if it is not open).
 3. Click **Browse…** and select your exported `.json` file.
 4. Click **Import**.
-5. A confirmation dialog appears when the import is complete. Check the MAXScript Listener for any warnings.
+5. A confirmation dialog appears when the import is complete. It will take a few long minutes. Check the MAXScript Listener for any warnings.
 
 > **Important:** Object names in Max must exactly match the object names in the JSON. The matching is case-sensitive.
 
@@ -186,19 +190,11 @@ Alternatively, drag and drop the `.ms` file into the Max viewport.
 
 ```
 1. Build and rig your scene in Blender.
-2. Export mesh geometry to FBX (for materials, UVs, normals).
+2. Export mesh geometry to FBX.
 3. Export transforms + animation to JSON with the add-on.
 4. Import the FBX into 3ds Max (geometry only, suppress animation).
 5. Run BlenderJSON_Importer_v1.0.ms, browse to the JSON, click Import.
    → Hierarchy, rotations, and animation are applied to the existing meshes.
 ```
 
----
 
-## File list
-
-| File | Description |
-|---|---|
-| `blender_json_exporter.py` | Blender add-on — exports selected objects to JSON |
-| `BlenderJSON_Importer_v1.0.ms` | 3ds Max MAXScript — reads JSON and applies transforms |
-| `BlenderJSON_Pipeline_v1.0.md` | This document |
