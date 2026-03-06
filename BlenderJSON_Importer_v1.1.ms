@@ -431,10 +431,13 @@ struct BlenderJSON_Importer_Struct (
 			local xM = buildMap kX; local yM = buildMap kY; local zM = buildMap kZ
 			local jl = jo["location"]
 
+			-- Switch to Position_XYZ so each axis has its own Bezier sub-controller,
+			-- matching the 'before' state seen in DebugTransforms (posCtrl: Position_XYZ).
 			local savedWorldPos = copy node.pos
-			node.pos.controller = Bezier_Position()
+			node.pos.controller = Position_XYZ()
 			node.transform.pos = savedWorldPos
 
+			local pc = node.pos.controller
 			local parentTMInv = if node.parent != undefined \
 				then inverse(node.parent.transform) \
 				else undefined
@@ -445,8 +448,12 @@ struct BlenderJSON_Importer_Struct (
 				local wz = (mapGet zM fr jl[3]) * U
 				local wPos = [wx, wy, wz]
 				local lPos = if parentTMInv != undefined then (wPos * parentTMInv) else wPos
-				local ki = addNewKey node.pos.controller (fr as time)
-				ki.value = lPos
+				local kiX = addNewKey pc.X_Position.controller (fr as time)
+				kiX.value = lPos.x
+				local kiY = addNewKey pc.Y_Position.controller (fr as time)
+				kiY.value = lPos.y
+				local kiZ = addNewKey pc.Z_Position.controller (fr as time)
+				kiZ.value = lPos.z
 			)
 		)
 
