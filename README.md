@@ -43,10 +43,7 @@ Empty arrays `[]` are written when an axis has no keyframes.
 ### Usage
 
 1. Select group of the objects you want to export (the exporter processes the current selection).
-2. Go to **Hierarchy** submenu on rigt N menu and click "Export JSON".
-   
-<img width="232" height="213" alt="image" src="https://github.com/user-attachments/assets/dec33726-2d34-4232-b9d1-e349438fc5c6" />
-
+2. Go to **File → Export → Blender JSON (.json)**.
 4. Choose a destination path and click **Export Blender JSON**.
 5. The resulting `.json` file is plain UTF-8 text and can be inspected in any text editor.
 6. **Delete all objects animation, unparent all objects, export this group of objects via standart FBX exporter. Very important to to set a few things in Blender FBX exporter settings, in transrorm tab set Y forward in Forward tab, Z Up in Up tab, also hit checkbox Apply Transform, uncheck Bake Animation. Settings should be as in the screenshot**:
