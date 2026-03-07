@@ -12,8 +12,8 @@
 #  USAGE
 #  -----
 #  Install via Edit -> Preferences -> Add-ons -> Install...
-#  Panel: View3D -> Sidebar -> Hierarchy tab
-#  Select objects to export, then click "Export JSON".
+#  Then use File -> Export -> Blender JSON (.json)
+#  to export selected objects.
 # ============================================================
 
 import bpy
@@ -178,34 +178,27 @@ class EXPORT_OT_blender_json(bpy.types.Operator, ExportHelper):
         return {'FINISHED'}
 
 
-# ── Panel ─────────────────────────────────────────────────────────────────────
+# ── File > Export menu hook ───────────────────────────────────────────────────
 
-class VIEW3D_PT_blender_json_exporter(bpy.types.Panel):
-    bl_space_type  = 'VIEW_3D'
-    bl_region_type = 'UI'
-    bl_category    = 'Hierarchy'
-    bl_label       = 'Transfer hierarchy'
-
-    def draw(self, context):
-        col = self.layout.column(align=True)
-        col.scale_y = 1.5
-        col.operator("export.blender_json",    icon='EXPORT', text="Export JSON")
+def menu_func_export(self, context):
+    self.layout.operator("export.blender_json", text="Blender JSON (.json)")
 
 
 # ── Registration ──────────────────────────────────────────────────────────────
 
 classes = [
     EXPORT_OT_blender_json,
-    VIEW3D_PT_blender_json_exporter,
 ]
 
 
 def register():
     for cls in classes:
         bpy.utils.register_class(cls)
+    bpy.types.TOPBAR_MT_file_export.append(menu_func_export)
 
 
 def unregister():
+    bpy.types.TOPBAR_MT_file_export.remove(menu_func_export)
     for cls in classes:
         bpy.utils.unregister_class(cls)
 
