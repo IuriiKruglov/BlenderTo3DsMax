@@ -149,7 +149,7 @@ Alternatively, drag and drop the `.ms` file into the Max viewport.
 
 ### Usage
 
-1. **Import your mesh geometry first** — via FBX as stated above — so the named objects already exist in the scene. The script matches objects by name.
+1. **Import your mesh geometry first** — via FBX as stated above — so the named objects already exist in the scene. The script matches objects by name. Before importing check units, should be centimeters.
 2. Open the **Blender JSON Importer** dialog (run the script if it is not open).
 3. Click **Browse…** and select your exported `.json` file.
 4. Click **Import**.
