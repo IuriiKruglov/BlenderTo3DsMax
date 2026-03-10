@@ -7,11 +7,29 @@ A lightweight, dependency-free pipeline for transferring rigged hierarchies with
 
 ## Overview
 
-Standard FBX export from Blender bakes all rotations to world-space XYZ regardless of the object's actual rotation mode, which destroys the original euler channels and makes animation editing in Max painful. This pipeline exports the raw JSON data — local euler angles, rotation mode, parent name, location keyframes, rotation keyframes — and a MAXScript importer reconstructs everything mathematically, keeping the correct rotation order and local animation curves intact.
+Standard FBX export from Blender bakes all rotations to world-space XYZ regardless of the object's actual rotation mode, which destroys the original euler channels and makes animation editing in Max painful. This pipeline exports the raw JSON data — local euler angles, rotation mode (XYZ, YZX, ZXY, XZY. YXZ, ZYX rotation order), parent name, location keyframes, rotation keyframes, objects collection name — and a MAXScript importer reconstructs everything mathematically, keeping the correct rotation order and local animation curves intact, creates layers.
 
 ```
 Blender scene  ──►  blender_export.py  ──►  scene.json  ──►  BlenderJSON_Importer.ms  ──►  3ds Max scene
 ```
+What blender issues does this method solve?
+
+Root object wrong x100 scale
+
+ <img width="961" height="664" alt="image" src="https://github.com/user-attachments/assets/07f5af46-8412-44a5-8725-cdf192af2314" />
+ 
+ <img width="751" height="467" alt="image" src="https://github.com/user-attachments/assets/3ca16480-ddf0-4fc3-b2d1-bce5507b78f9" />
+
+Unwanted keys generation, rotaion order resets to default XYZ
+<img width="960" height="661" alt="image" src="https://github.com/user-attachments/assets/86a73fe3-31ad-42d3-a542-00fc3f918b0d" />
+
+Export from Blender via standart fbx exporter with animation bake:
+<img width="966" height="1026" alt="image" src="https://github.com/user-attachments/assets/1828acf3-393c-4446-baae-257cf99ad6e8" />
+
+Parameters after script execution:
+<img width="966" height="1027" alt="image" src="https://github.com/user-attachments/assets/79c38f19-edd5-46a7-a512-964f528be07a" />
+
+
 
 ---
 
