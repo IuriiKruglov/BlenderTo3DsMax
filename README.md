@@ -41,12 +41,17 @@ Created by Claude (Anthropic) under the leadership of Kruglov Iurii.
 
 ## How it works in one minute
 
+▶️ **[Video Demo](https://youtu.be/yLYJzMyWv8I?si=sY3GL83_MlfsgS6A)**
+
 The geometry travels as an **FBX** file and everything else as a **JSON** file:
 
 - **FBX:** static, unparented, axis-correct, skinned meshes in their rest pose.
 - **JSON:** hierarchy, rotation orders, transforms, the exact keyframes, collections, bones and skin weights.
 
 A small listener inside 3ds Max picks up each export, imports the FBX and rebuilds the rest from the JSON, key by key.
+
+<img width="319" height="398" alt="image" src="https://github.com/user-attachments/assets/24ab1819-a639-4cd2-a5d1-9be3cebc33e3" />
+<img width="384" height="297" alt="image" src="https://github.com/user-attachments/assets/09691810-e0d7-42ca-97ef-d505f5190356" />
 
 ```mermaid
 sequenceDiagram
