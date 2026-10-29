@@ -1,4 +1,3 @@
-
 # Blender → 3ds Max Bridge
 
 **One button in Blender, the result in 3ds Max.** Objects, hierarchy, Euler rotation orders, transforms, keyframe animation, collections and armatures arrive in 3ds Max as you built them in Blender. Armatures become **Dummy + Skin** setups with your painted weights.
@@ -10,7 +9,7 @@
 | Part | File | Runs in |
 |---|---|---|
 | Blender add-on | `blender_max_bridge.py` | Blender 3.6 LTS – 5.2 |
-| 3ds Max script (listener + importer) | `BlenderMaxBridge_v2.1.ms` | 3ds Max 2022 – 2026 |
+| 3ds Max script (listener + importer) | `BlenderMaxBridge_v2.2.ms` | 3ds Max 2022 – 2026 |
 
 Created by Claude (Anthropic) under the leadership of Kruglov Iurii.
 
@@ -41,16 +40,13 @@ Created by Claude (Anthropic) under the leadership of Kruglov Iurii.
 ---
 
 ## How it works in one minute
-▶️ **[Video Demo](https://youtu.be/yLYJzMyWv8I?si=sY3GL83_MlfsgS6A)**
+
 The geometry travels as an **FBX** file and everything else as a **JSON** file:
 
 - **FBX:** static, unparented, axis-correct, skinned meshes in their rest pose.
 - **JSON:** hierarchy, rotation orders, transforms, the exact keyframes, collections, bones and skin weights.
 
 A small listener inside 3ds Max picks up each export, imports the FBX and rebuilds the rest from the JSON, key by key.
-<img width="319" height="398" alt="image" src="https://github.com/user-attachments/assets/24ab1819-a639-4cd2-a5d1-9be3cebc33e3" />
-<img width="384" height="297" alt="image" src="https://github.com/user-attachments/assets/09691810-e0d7-42ca-97ef-d505f5190356" />
-
 
 ```mermaid
 sequenceDiagram
@@ -83,6 +79,7 @@ Your Blender scene is left exactly as it was. Everything the export changes is p
 - **Keyframes are transferred one to one.** Location goes to *Position XYZ*, rotation to *Euler XYZ* and scale to *Bezier Scale*.
   - Keys land on the same frame numbers, sub-frames included.
   - Only the axes you keyed in Blender get keys. No extra keys appear on X or Y if you only keyed Z.
+  - Rotation keys follow Blender's own channel values: whole turns (a wheel keyed 0° → 720° turns twice), angles past ±90° and gimbal-locked poses (exactly ±90° on the middle axis of the rotation order) arrive as keyed.
 - **Collections become layers**, nested like in Blender.
 - **Units** are converted from Blender units to the 3ds Max system unit, whatever it is. The result is cross-checked against the imported FBX, so location keys and geometry always share the same scale.
 - **Time line:** the 3ds Max time line is extended to Blender's frame range (it is never shortened).
@@ -143,7 +140,7 @@ Your Blender scene is left exactly as it was. Everything the export changes is p
 5. Optional: set a different **Bridge folder** in the add-on preferences. The default is `%LOCALAPPDATA%\BlenderMaxBridge`.
 
 ### 3ds Max script
-1. Save `BlenderMaxBridge_v2.1.ms` in a permanent folder. Autostart refers to this path.
+1. Save `BlenderMaxBridge_v2.2.ms` in a permanent folder. Autostart refers to this path.
 2. Run it with *Scripting → Run Script…*, or drag it into a viewport. The **Blender -> 3ds Max Bridge** dialog opens.
 3. Press **Start listening**.
 4. Optional: tick **Start the listener automatically when 3ds Max starts**.
@@ -363,14 +360,19 @@ Tangents follow Blender's keys:
 ## Rotation, position and unit math
 
 ### Objects
-These formulas are unchanged since version 1.1.1.
 
 ```
 W  = R1(a1) · R2(a2) · R3(a3)      rotation from the JSON Euler angles, in the object's rotation-mode order
 L  = W · inverse(W_parent)          local rotation relative to the parent
-decomposeEuler(L, mode)  →  Euler XYZ controller values (degrees)
-location keys:  local = (location × U) · inverse(parent.transform)
+static rotation:  Blender's own Euler values, set before linking (they are exactly the world rotation W),
+                  then 3ds Max links the node and keeps its world transform
+rotation key k:   key(k−1) + (Blender value(k) − Blender value(k−1))   when that is the same rotation all along the step,
+                  otherwise Blender's motion is followed in steps of at most 30°, each taking the
+                  equivalent Euler triple nearest to the previous one (so turns and direction survive)
+location keys:    local = (location × U) · inverse(parent.transform)
 ```
+
+The first rotation key starts from the static values 3ds Max holds after linking. Axes you did not key in Blender keep those values. If the parent's orientation would make them move as well, you get a warning (see [Limitations](#limitations)).
 
 | Blender rotation mode | 3ds Max Euler XYZ `axisOrder` |
 |---|---|
@@ -513,16 +515,17 @@ The importer up to v1.1.1 was slow because of how it used MAXScript, not because
 - building the file string line by line;
 - undo and redraw for every key.
 
-Version 2.x removes all of these and keeps the math identical. The JSON is also smaller: 2.7× on the test scene (112 KB → 42 KB). Each import prints its phase timings to the MAXScript Listener. FBX import time depends on the geometry and is outside the script's control.
+Version 2.0 removes all of these and keeps the math identical; 2.2 then fixes the rotation math (see [Version history](#version-history)). The JSON is also smaller: 2.7× on the test scene (112 KB → 42 KB). Each import prints its phase timings to the MAXScript Listener. FBX import time depends on the geometry and is outside the script's control.
 
 ---
 
 ## Limitations
 
 - **Frame numbers are kept as they are.** A different frame rate in 3ds Max only produces a warning; time is not remapped.
-- **Interpolation between keys.** Flat and constant curves match Blender exactly, and so do linear location and scale curves. Other curve shapes, and linear rotations, follow 3ds Max interpolation between keys (*Auto* tangents; quaternion bone rotations are interpolated as Euler). Values at the keys always match. Use **Bake bone keys every frame** when the deformation must match on every frame.
+- **Interpolation between keys.** Flat and constant curves match Blender exactly, and so do linear location and scale curves. Other curve shapes, and linear rotations, follow 3ds Max interpolation between keys (*Auto* tangents; quaternion bone rotations are interpolated as Euler). Values at the keys match (for one exception, see *Rotation keyed on only some axes* below). Use **Bake bone keys every frame** when the deformation must match on every frame.
 - **Object animation** is read from the active action only. NLA strips, drivers and constraints on objects are not converted; constraints are muted for the FBX and their effect is not baked.
 - **Object transforms** assume children were parented with *Keep Transform* (see [math](#objects)).
+- **Rotation keyed on only some axes.** 3ds Max gets keys only on the axes you keyed. When the parent's orientation means the other axes would have to turn too, those poses cannot match, and the import warns with the object's name. Key X, Y and Z rotation in Blender for an exact match.
 - **Skinning limits:** see [Not converted](#not-converted-you-get-a-warning). In addition:
   - Modifiers placed after the Armature modifier that change the vertex count are not supported.
   - A non-uniform scale on an armature object combined with rotated bones (shear) cannot be represented by 3ds Max PRS controllers.
@@ -543,6 +546,7 @@ Version 2.x removes all of these and keeps the math identical. The JSON is also 
 | Skin step errors | Make sure the command panel is open. The script switches it to *Modify* while skinning |
 | *Scene restore problems* / *objects moved by up to …* in Blender | Rare (for example, a locked or linked object). Undo once in Blender, then report the message in an issue |
 | Autostart still loads an old script | Run the new script once. The autostart file is re-pointed automatically |
+| *…: rotation is keyed on only some axes in Blender…* | Key all three rotation channels of that object in Blender (*I → Rotation*) and send again |
 
 ---
 
@@ -550,6 +554,7 @@ Version 2.x removes all of these and keeps the math identical. The JSON is also 
 
 | Version | Changes |
 |---|---|
+| **2.2** | 3ds Max script only; the Blender add-on stays 2.1. Fixes objects rotated exactly ±90° on the middle axis of their rotation order (for example X = 90° in ZXY): 3ds Max turned them the wrong way while linking their children, so the children kept wrong offsets (landing-gear struts and wheels shifted and tilted). Static rotations now use Blender's values directly. Rotation keys keep whole turns and angles past ±90°. Warning when a rotation keyed on only some axes cannot match under its parent |
 | **2.1** | Armatures become Dummies (Z forward, Y up) with a Skin modifier, the painted weights (normalized like Blender) and the bone animation. Optional per-frame bake; automatic bake for constrained or driven bones. Objects parented to bones go to the bone dummies. Autostart re-points itself after an update |
 | **2.0** | One-button bridge: FBX + JSON export with exact scene restore, and a 3ds Max listener with handshake files. Much faster 3ds Max import. Blender 3.6 – 5.2 (slotted actions in 4.4+), 3ds Max 2022 – 2026. System-unit handling with a measured check against the FBX. Working scale keys. Safe *Replace* |
 | **1.1.1** | Keys only on the axes keyed in Blender |
