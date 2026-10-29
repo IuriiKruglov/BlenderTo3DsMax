@@ -9,7 +9,7 @@
 | Part | File | Runs in |
 |---|---|---|
 | Blender add-on | `blender_max_bridge.py` | Blender 3.6 LTS – 5.2 |
-| 3ds Max script (listener + importer) | `BlenderMaxBridge_v2.2.ms` | 3ds Max 2022 – 2026 |
+| 3ds Max script (listener + importer) | `BlenderMaxBridge_v2.3.ms` | 3ds Max 2022 – 2026 |
 
 Created by Claude (Anthropic) under the leadership of Kruglov Iurii.
 
@@ -40,16 +40,13 @@ Created by Claude (Anthropic) under the leadership of Kruglov Iurii.
 ---
 
 ## How it works in one minute
-▶️ **[Video Demo](https://youtu.be/yLYJzMyWv8I?si=sY3GL83_MlfsgS6A)**
+
 The geometry travels as an **FBX** file and everything else as a **JSON** file:
 
 - **FBX:** static, unparented, axis-correct, skinned meshes in their rest pose.
 - **JSON:** hierarchy, rotation orders, transforms, the exact keyframes, collections, bones and skin weights.
 
 A small listener inside 3ds Max picks up each export, imports the FBX and rebuilds the rest from the JSON, key by key.
-
-<img width="319" height="398" alt="image" src="https://github.com/user-attachments/assets/24ab1819-a639-4cd2-a5d1-9be3cebc33e3" />
-<img width="384" height="297" alt="image" src="https://github.com/user-attachments/assets/09691810-e0d7-42ca-97ef-d505f5190356" />
 
 ```mermaid
 sequenceDiagram
@@ -76,7 +73,7 @@ Your Blender scene is left exactly as it was. Everything the export changes is p
 ## Features
 
 ### Objects and animation
-- **Hierarchy** is rebuilt with 3ds Max parenting.
+- **Hierarchy** is rebuilt with 3ds Max parenting. It does not matter in which pose the parent was when you parented (for example in the middle of an animation): Blender's parent inverse matrix is taken into account.
 - **Rotation orders** are kept. Each Blender rotation mode (XYZ, XZY, YZX, YXZ, ZXY, ZYX) becomes a 3ds Max *Euler XYZ* controller with the same axis order.
 - **Quaternion and axis-angle objects** are converted to Euler XYZ, keeping the rotation continuous between keys.
 - **Keyframes are transferred one to one.** Location goes to *Position XYZ*, rotation to *Euler XYZ* and scale to *Bezier Scale*.
@@ -143,7 +140,7 @@ Your Blender scene is left exactly as it was. Everything the export changes is p
 5. Optional: set a different **Bridge folder** in the add-on preferences. The default is `%LOCALAPPDATA%\BlenderMaxBridge`.
 
 ### 3ds Max script
-1. Save `BlenderMaxBridge_v2.2.ms` in a permanent folder. Autostart refers to this path.
+1. Save `BlenderMaxBridge_v2.3.ms` in a permanent folder. Autostart refers to this path.
 2. Run it with *Scripting → Run Script…*, or drag it into a viewport. The **Blender -> 3ds Max Bridge** dialog opens.
 3. Press **Start listening**.
 4. Optional: tick **Start the listener automatically when 3ds Max starts**.
@@ -386,7 +383,23 @@ The first rotation key starts from the static values 3ds Max holds after linking
 | ZXY | 5 (ZXY) |
 | ZYX | 6 (ZYX) |
 
-The object values in the JSON are Blender's raw transform values. 3ds Max treats a child's raw values as its world values at the pose frame. That holds for children parented with *Ctrl+P → Object* or *Object (Keep Transform)*, as long as the parent has not moved since. Versions 1.x make the same assumption.
+The object values in the JSON are Blender's raw transform values. When a child was parented while its parent had the pose it has at the pose frame (the usual case), those values are the child's world values at the pose frame, and the formulas above apply as written.
+
+When the parent had another pose at parenting time (parented in the middle of an animation, or the parent moved afterwards), Blender keeps the child in place through the child's *parent inverse* matrix, and the raw values are no longer world values. For such objects the add-on (2.3) also sends `parent_space`, the matrix M with
+
+```
+world(object) = world(3ds Max parent) · M · basis(object)        (Blender convention, constant over time)
+```
+
+The 3ds Max script (2.3) then uses
+
+```
+W  = R(channels) · rot(M) · W_parent        static world rotation
+L  = R(channels) · rot(M)                   local rotation of every key
+location keys:  local = (location × U) · M   (3ds Max row-vector convention, translation × U)
+```
+
+For objects parented to a bone dummy, M also contains the dummy axes and the bone tail, and is taken in the bind pose, in which the FBX and the dummies are linked. Versions up to 2.2 always assumed raw values = world values.
 
 ### Bone dummies
 The dummies' local values are computed directly in Blender, as described above, and written to *Position XYZ*, *Euler XYZ* (axis order XYZ) and *Bezier Scale*.
@@ -411,7 +424,7 @@ The JSON is compact: one object per line, plain decimals only. Version 3 adds th
 
 ```json
 {
-"format":"BlenderMaxBridge","version":3,"generator":"Blender 4.2.23 LTS / blender_max_bridge 2.1",
+"format":"BlenderMaxBridge","version":3,"generator":"Blender 4.2.23 LTS / blender_max_bridge 2.3",
 "source":"engine_rig.blend","fbx":"engine_rig.fbx","pose_frame":0,"fps":24,
 "frame_start":0,"frame_end":81,"unit_to_cm":100,
 "objects":{ ... },
@@ -442,6 +455,13 @@ Illustrative example:
               "scale":{"X":[],"Y":[],"Z":[]}}}
 ```
 Rotations are in radians, and keys are `{"frame", "value"}` per axis.
+
+Objects parented while their parent had another pose also carry `"parent_space"` (add-on 2.3): the first three rows of a 4×4 matrix in Blender's column-vector convention, translation in Blender units (see [math](#objects)). Importers that do not know the field ignore it.
+
+```json
+"Chassis_L_04":{"parent":"Chassis_L_02","rotation_mode":"ZXY", …,
+ "parent_space":[[1,0,0,-0.7228335738],[0,0,1,-0.7212077379],[0,-1,0,0.6823562384]]}
+```
 
 ### Armature record
 
@@ -527,7 +547,7 @@ Version 2.0 removes all of these and keeps the math identical; 2.2 then fixes th
 - **Frame numbers are kept as they are.** A different frame rate in 3ds Max only produces a warning; time is not remapped.
 - **Interpolation between keys.** Flat and constant curves match Blender exactly, and so do linear location and scale curves. Other curve shapes, and linear rotations, follow 3ds Max interpolation between keys (*Auto* tangents; quaternion bone rotations are interpolated as Euler). Values at the keys match (for one exception, see *Rotation keyed on only some axes* below). Use **Bake bone keys every frame** when the deformation must match on every frame.
 - **Object animation** is read from the active action only. NLA strips, drivers and constraints on objects are not converted; constraints are muted for the FBX and their effect is not baked.
-- **Object transforms** assume children were parented with *Keep Transform* (see [math](#objects)).
+- **Parenting types.** Object, armature and bone parenting are exact in any parenting pose. Vertex parents use the pose-frame relation only, and bones with *Relative Parenting* are treated as if the child was parented in the bind pose.
 - **Rotation keyed on only some axes.** 3ds Max gets keys only on the axes you keyed. When the parent's orientation means the other axes would have to turn too, those poses cannot match, and the import warns with the object's name. Key X, Y and Z rotation in Blender for an exact match.
 - **Skinning limits:** see [Not converted](#not-converted-you-get-a-warning). In addition:
   - Modifiers placed after the Armature modifier that change the vertex count are not supported.
@@ -557,6 +577,7 @@ Version 2.0 removes all of these and keeps the math identical; 2.2 then fixes th
 
 | Version | Changes |
 |---|---|
+| **2.3** | Add-on and 3ds Max script. Children parented while their parent had another pose than at the pose frame (for example parented in the middle of an animation, or without parent inverse) arrive in the right place and with the right rotation and location keys: the add-on sends `parent_space` for them, the 3ds Max script uses it. Also applies to objects parented to bones in a posed armature |
 | **2.2** | 3ds Max script only; the Blender add-on stays 2.1. Fixes objects rotated exactly ±90° on the middle axis of their rotation order (for example X = 90° in ZXY): 3ds Max turned them the wrong way while linking their children, so the children kept wrong offsets (landing-gear struts and wheels shifted and tilted). Static rotations now use Blender's values directly. Rotation keys keep whole turns and angles past ±90°. Warning when a rotation keyed on only some axes cannot match under its parent |
 | **2.1** | Armatures become Dummies (Z forward, Y up) with a Skin modifier, the painted weights (normalized like Blender) and the bone animation. Optional per-frame bake; automatic bake for constrained or driven bones. Objects parented to bones go to the bone dummies. Autostart re-points itself after an update |
 | **2.0** | One-button bridge: FBX + JSON export with exact scene restore, and a 3ds Max listener with handshake files. Much faster 3ds Max import. Blender 3.6 – 5.2 (slotted actions in 4.4+), 3ds Max 2022 – 2026. System-unit handling with a measured check against the FBX. Working scale keys. Safe *Replace* |

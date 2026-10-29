@@ -1,6 +1,6 @@
 # ============================================================
 #  Blender -> 3ds Max Bridge  (Blender add-on)
-#  Version 2.1
+#  Version 2.3
 #
 #  Created by Claude (Anthropic)
 #  under the leadership of Kruglov Iurii
@@ -14,7 +14,9 @@
 #       position of armatures).
 #    2. Goes to the pose frame (default 0, the frame 3ds Max reads)
 #       and writes the JSON: names, hierarchy, rotation order,
-#       transforms, per-axis animation keys, collections.
+#       transforms, per-axis animation keys, collections, and the
+#       parent space of children parented while their parent had
+#       another pose ("parent_space", new in 2.3).
 #    3. Armatures (option "Bones -> Dummies + Skin", on by default):
 #       every deform bone becomes a 3ds Max Dummy (Z forward, Y up,
 #       scale 100 %, bone hierarchy kept), with its animation as
@@ -29,7 +31,7 @@
 #       Apply Transform, Apply Scalings = All Local.
 #    5. Restores the scene exactly as it was and checks it.
 #    6. Drops a job file into the bridge folder. The 3ds Max
-#       listener (BlenderMaxBridge_v2.1.ms) imports the FBX,
+#       listener (BlenderMaxBridge_v2.3.ms) imports the FBX,
 #       applies the JSON and writes back a result, shown in the
 #       Max Bridge panel.
 #
@@ -50,7 +52,7 @@
 bl_info = {
     "name":        "Blender -> 3ds Max Bridge",
     "author":      "Claude (Anthropic) under the leadership of Kruglov Iurii",
-    "version":     (2, 1, 0),
+    "version":     (2, 3, 0),
     "blender":     (3, 6, 0),
     "location":    "View3D > Sidebar > Max Bridge  |  File > Export",
     "description": "One-click transfer of objects, hierarchy, rotation orders, animation keys, "
@@ -72,7 +74,7 @@ from bpy.props import (BoolProperty, EnumProperty, IntProperty,
 from bpy_extras.io_utils import ExportHelper
 from mathutils import Matrix, Quaternion, Vector
 
-ADDON_VERSION = "2.1"
+ADDON_VERSION = "2.3"
 JSON_FORMAT = "BlenderMaxBridge"
 JSON_VERSION = 3
 JOB_FORMAT = "BlenderMaxBridgeJob"
@@ -361,9 +363,57 @@ def collect_scene_data(context, objects, pose_frame, fbx_name="", plans=None):
         "frame_start": scene.frame_start,
         "frame_end":   scene.frame_end,
         "unit_to_cm":  fbx_unit_factor(scene),
-        "objects":     {o.name: object_record(o, resolve_max_parent(o, plans, scope_set)[0]) for o in nodes},
+        "objects":     {o.name: _object_with_space(o, plans, scope_set) for o in nodes},
         "collections": collections_record(objects),
     }
+
+
+def _object_with_space(obj, plans, scope_set):
+    name, ref = resolve_max_parent(obj, plans, scope_set)
+    rec = object_record(obj, name)
+    space = parent_space(obj, ref)
+    if space is not None:
+        rec["parent_space"] = space
+    return rec
+
+
+def parent_space(obj, ref):
+    """Space of obj's own channel values relative to its 3ds Max parent.
+
+    Blender: world = parent matrix @ matrix_parent_inverse @ basis. The 3ds Max script
+    assumes that the channel values are the world values in the pose the scene is linked
+    in, which holds after Ctrl+P as long as the parent has kept the pose it had then. When
+    the parent was parented in another pose (or has moved since), this returns the 3x4
+    rows of M, constant over time, with
+        world(obj) = world(3ds Max parent) @ M @ basis(obj)
+    otherwise None. The linking pose is the pose frame; for children of bone dummies it
+    is the bind (rest) pose, like the FBX and the dummies. ref: from resolve_max_parent."""
+    par = obj.parent
+    if par is None:
+        return None
+    kind, target = ref if ref is not None else (None, None)
+    pinv = obj.matrix_parent_inverse
+    if obj.parent_type == 'BONE':
+        bone = par.data.bones.get(obj.parent_bone) if par.type == 'ARMATURE' else None
+        if bone is None or bone.use_relative_parent:
+            return None
+        tail = Matrix.Translation((0.0, bone.length, 0.0))
+        if kind == 'bone':
+            q = par.matrix_world @ bone.matrix_local @ tail @ pinv
+            w_max = par.matrix_world @ bone.matrix_local @ DUMMY_AXES
+        else:
+            q = par.matrix_world @ par.pose.bones[obj.parent_bone].matrix @ tail @ pinv
+            w_max = target.matrix_world if kind == 'object' else Matrix.Identity(4)
+    else:
+        if obj.parent_type in ('VERTEX', 'VERTEX_3'):
+            q = obj.matrix_world @ obj.matrix_basis.inverted_safe()
+        else:
+            q = par.matrix_world @ pinv
+        w_max = target.matrix_world if kind == 'object' else Matrix.Identity(4)
+    if max(abs(q[r][c] - (1.0 if r == c else 0.0)) for r in range(3) for c in range(4)) < 1e-5:
+        return None
+    m = w_max.inverted_safe() @ q
+    return [[m[r][c] for c in range(4)] for r in range(3)]
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -1161,7 +1211,7 @@ def _poll_result():
                 pass
             _set_transfer("error",
                           "3ds Max did not pick up the job (%.0f s)." % waited,
-                          "Run BlenderMaxBridge_v2.1.ms in 3ds Max and press Start listening.",
+                          "Run BlenderMaxBridge_v2.3.ms in 3ds Max and press Start listening.",
                           "Files are kept, you can import them manually.")
             return None
 
