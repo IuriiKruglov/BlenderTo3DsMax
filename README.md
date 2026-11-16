@@ -5,11 +5,24 @@
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE)
 ![Blender 3.6–5.2](https://img.shields.io/badge/Blender-3.6--5.2-orange)
 ![3ds Max 2022–2026](https://img.shields.io/badge/3ds%20Max-2022--2026-blue)
+![Version 2.3](https://img.shields.io/badge/version-2.3-informational)
+
+▶️ **[Watch the video demo](https://youtu.be/yLYJzMyWv8I)**
+
+<p align="center">
+  <img width="319" alt="Blender → 3ds Max Bridge screenshot" src="https://github.com/user-attachments/assets/24ab1819-a639-4cd2-a5d1-9be3cebc33e3" />
+  &nbsp;&nbsp;
+  <img width="384" alt="Blender → 3ds Max Bridge screenshot" src="https://github.com/user-attachments/assets/09691810-e0d7-42ca-97ef-d505f5190356" />
+</p>
+
+## Download
 
 | Part | File | Runs in |
 |---|---|---|
-| Blender add-on | `blender_max_bridge.py` | Blender 3.6 LTS – 5.2 |
-| 3ds Max script (listener + importer) | `BlenderMaxBridge_v2.3.ms` | 3ds Max 2022 – 2026 |
+| Blender add-on | [`blender_max_bridge.py`](blender_max_bridge.py) | Blender 3.6 LTS – 5.2 |
+| 3ds Max script (listener + importer) | [`BlenderMaxBridge.ms`](BlenderMaxBridge.ms) | 3ds Max 2022 – 2026 |
+
+Open each file and press **Download raw file** (the download icon above the code), then follow [Installation](#installation).
 
 Created by Claude (Anthropic) under the leadership of Kruglov Iurii.
 
@@ -17,6 +30,7 @@ Created by Claude (Anthropic) under the leadership of Kruglov Iurii.
 
 ## Contents
 
+- [Download](#download)
 - [How it works in one minute](#how-it-works-in-one-minute)
 - [Features](#features)
 - [Requirements](#requirements)
@@ -32,6 +46,7 @@ Created by Claude (Anthropic) under the leadership of Kruglov Iurii.
 - [Performance](#performance)
 - [Limitations](#limitations)
 - [Troubleshooting](#troubleshooting)
+- [Repository layout](#repository-layout)
 - [Version history](#version-history)
 - [Contributing](#contributing)
 - [Credits](#credits)
@@ -41,17 +56,12 @@ Created by Claude (Anthropic) under the leadership of Kruglov Iurii.
 
 ## How it works in one minute
 
-▶️ **[Video Demo](https://youtu.be/yLYJzMyWv8I?si=sY3GL83_MlfsgS6A)**
-
 The geometry travels as an **FBX** file and everything else as a **JSON** file:
 
 - **FBX:** static, unparented, axis-correct, skinned meshes in their rest pose.
 - **JSON:** hierarchy, rotation orders, transforms, the exact keyframes, collections, bones and skin weights.
 
 A small listener inside 3ds Max picks up each export, imports the FBX and rebuilds the rest from the JSON, key by key.
-
-<img width="319" height="398" alt="image" src="https://github.com/user-attachments/assets/24ab1819-a639-4cd2-a5d1-9be3cebc33e3" />
-<img width="384" height="297" alt="image" src="https://github.com/user-attachments/assets/09691810-e0d7-42ca-97ef-d505f5190356" />
 
 ```mermaid
 sequenceDiagram
@@ -145,7 +155,7 @@ Your Blender scene is left exactly as it was. Everything the export changes is p
 5. Optional: set a different **Bridge folder** in the add-on preferences. The default is `%LOCALAPPDATA%\BlenderMaxBridge`.
 
 ### 3ds Max script
-1. Save `BlenderMaxBridge_v2.3.ms` in a permanent folder. Autostart refers to this path.
+1. Save `BlenderMaxBridge.ms` in a permanent folder. Autostart refers to this path.
 2. Run it with *Scripting → Run Script…*, or drag it into a viewport. The **Blender -> 3ds Max Bridge** dialog opens.
 3. Press **Start listening**.
 4. Optional: tick **Start the listener automatically when 3ds Max starts**.
@@ -154,7 +164,7 @@ Both sides use the same default bridge folder. If you change it on one side, cha
 
 ### Updating
 - **Blender:** install the new `.py` over the old one.
-- **3ds Max:** run the new `.ms` once. If autostart is on, it is re-pointed to the new script file automatically.
+- **3ds Max:** replace `BlenderMaxBridge.ms` with the new one and run it once. If autostart is on and you saved the new script under another name or folder, autostart is re-pointed to it automatically.
 
 ---
 
@@ -578,17 +588,31 @@ Version 2.0 removes all of these and keeps the math identical; 2.2 then fixes th
 
 ---
 
+## Repository layout
+
+| Path | Contents |
+|---|---|
+| [`blender_max_bridge.py`](blender_max_bridge.py) | Blender add-on, current version |
+| [`BlenderMaxBridge.ms`](BlenderMaxBridge.ms) | 3ds Max script, current version |
+| [`legacy/`](legacy/) | The first tools, which the bridge replaces: the *Blender JSON Exporter* add-on (1.0) and its 3ds Max importer (1.1.1) |
+
+The file names stay the same from version to version, so each update replaces the file and GitHub keeps every earlier version in the history.
+
+---
+
 ## Version history
+
+A linked version number opens the repository as it was at that version (2.0 was not published on its own).
 
 | Version | Changes |
 |---|---|
 | **2.3** | Add-on and 3ds Max script. Children parented while their parent had another pose than at the pose frame (for example parented in the middle of an animation, or without parent inverse) arrive in the right place and with the right rotation and location keys: the add-on sends `parent_space` for them, the 3ds Max script uses it. Also applies to objects parented to bones in a posed armature |
-| **2.2** | 3ds Max script only; the Blender add-on stays 2.1. Fixes objects rotated exactly ±90° on the middle axis of their rotation order (for example X = 90° in ZXY): 3ds Max turned them the wrong way while linking their children, so the children kept wrong offsets (landing-gear struts and wheels shifted and tilted). Static rotations now use Blender's values directly. Rotation keys keep whole turns and angles past ±90°. Warning when a rotation keyed on only some axes cannot match under its parent |
-| **2.1** | Armatures become Dummies (Z forward, Y up) with a Skin modifier, the painted weights (normalized like Blender) and the bone animation. Optional per-frame bake; automatic bake for constrained or driven bones. Objects parented to bones go to the bone dummies. Autostart re-points itself after an update |
+| [**2.2**](https://github.com/IuriiKruglov/BlenderTo3DsMax/tree/876e416c598ba528a8e956a91888f0bdb8ca0d43) | 3ds Max script only; the Blender add-on stays 2.1. Fixes objects rotated exactly ±90° on the middle axis of their rotation order (for example X = 90° in ZXY): 3ds Max turned them the wrong way while linking their children, so the children kept wrong offsets (landing-gear struts and wheels shifted and tilted). Static rotations now use Blender's values directly. Rotation keys keep whole turns and angles past ±90°. Warning when a rotation keyed on only some axes cannot match under its parent |
+| [**2.1**](https://github.com/IuriiKruglov/BlenderTo3DsMax/tree/5229220b6fc7b1cea0c7127ac2378f8856dd5655) | Armatures become Dummies (Z forward, Y up) with a Skin modifier, the painted weights (normalized like Blender) and the bone animation. Optional per-frame bake; automatic bake for constrained or driven bones. Objects parented to bones go to the bone dummies. Autostart re-points itself after an update |
 | **2.0** | One-button bridge: FBX + JSON export with exact scene restore, and a 3ds Max listener with handshake files. Much faster 3ds Max import. Blender 3.6 – 5.2 (slotted actions in 4.4+), 3ds Max 2022 – 2026. System-unit handling with a measured check against the FBX. Working scale keys. Safe *Replace* |
-| **1.1.1** | Keys only on the axes keyed in Blender |
-| **1.1** | Blender collections become 3ds Max layers. Location keys use the *Position XYZ* controller |
-| **1.0** | Blender JSON exporter add-on and 3ds Max importer: hierarchy, rotation orders, transforms and animation keys |
+| [**1.1.1**](https://github.com/IuriiKruglov/BlenderTo3DsMax/tree/af27c125622691a5ce3cad4b87d2c2d21d38f9e0) | Keys only on the axes keyed in Blender |
+| [**1.1**](https://github.com/IuriiKruglov/BlenderTo3DsMax/tree/c0b88a664d27c355c53c3622cea029d726cecac3) | Blender collections become 3ds Max layers. Location keys use the *Position XYZ* controller |
+| [**1.0**](https://github.com/IuriiKruglov/BlenderTo3DsMax/tree/99b7203b0fe7db644f2bf7bdf4b26f8047e295e6) | Blender JSON exporter add-on and 3ds Max importer: hierarchy, rotation orders, transforms and animation keys |
 
 ---
 
